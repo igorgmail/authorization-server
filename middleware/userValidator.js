@@ -1,10 +1,22 @@
-const { check, validationResult } = require('express-validator');
+const { check, body, validationResult } = require('express-validator');
+const CustomError = require('../utils/AppError');
 
 class Validate {
   //--------------
   #validationTemplates = {
     //--------------
+    emailFirstCharacter: body('email').custom((value) => {
+      if (!/^[a-zA-Z0-9]+$/gm.test(value[0])) {
+        throw new Error('Invalid first character');
+      }
+      return true;
+    }),
     isEmail: check('email', 'Email field is incorrect').isEmail(),
+    //--------------
+    isEmailStopSymbol: check('email', 'The email contains invalid characters')
+      // .not()
+      // psosible symbol @ $ # ! ? - _ .
+      .matches(/^[a-zA-Z0-9@$#!?-_.]+$/gm),
     //--------------
     isPasswordEmpty: check('password', 'Password field is incorrect')
       .trim()
@@ -29,7 +41,10 @@ class Validate {
 
   validateLogin = () => {
     const validationRules = [
+      this.#validationTemplates.emailFirstCharacter,
       this.#validationTemplates.isEmail,
+      this.#validationTemplates.isEmailStopSymbol,
+
       this.#validationTemplates.isPasswordEmpty,
       this.#validationTemplates.isPasswordStopSymbol,
       this.#validationTemplates.passwordLength,
@@ -45,18 +60,24 @@ class Validate {
 
       const result = validationResult(req);
 
-      const errorData = result
+      if (result.isEmpty()) {
+        return next();
+      }
+
+      const errorsArray = result
         .formatWith(({ msg, value }) => {
           return { value, msg };
         })
         // To get only the fields set in the function formatWith()
         .array();
+      const errorData = {
+        status: 'fail',
+        msg: errorsArray[0]?.msg,
+        validatorErrors: errorsArray,
+      };
 
-      if (result.isEmpty()) {
-        return next();
-      }
-
-      res.status(400).json({ errors: errorData });
+      next(new CustomError(errorData.msg, 403, errorsArray));
+      // res.status(400).json({ errors: errorData });
     };
   };
 }

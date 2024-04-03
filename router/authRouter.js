@@ -13,9 +13,11 @@ router.post(
   validate.validateLogin(),
   userController.registration,
 );
+
 router.get('/logout', authChecker, userController.logOut);
 
-router.post('/auth', userController.auth);
+router.get('/auth', userController.auth);
+
 router.get('/activate/:link');
 // router.get('/refresh');
 

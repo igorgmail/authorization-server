@@ -6,8 +6,7 @@ class UserService {
       const user = await User.findOne({ where: { email }, raw: true });
       return user;
     } catch (error) {
-      console.log('Database query error');
-      throw Error();
+      throw Error('Database query error');
     }
   }
 
@@ -21,8 +20,7 @@ class UserService {
       });
       return [user, created];
     } catch (error) {
-      console.log('Database query error');
-      throw Error();
+      throw Error('Database query error');
     }
   }
 }

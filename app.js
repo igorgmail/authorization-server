@@ -2,7 +2,9 @@ const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
-const router = require('./router/index');
+const authRouter = require('./router/authRouter');
+const errorHandler = require('./middleware/errorHandler');
+const CustomError = require('./utils/AppError');
 
 require('dotenv').config({ path: `./.env.${process.env.NODE_ENV}` });
 
@@ -41,7 +43,13 @@ const sessionConfig = {
 // session middleware
 app.use(session(sessionConfig));
 
-app.use('/user', router);
+app.use('/user', authRouter);
+
+app.use('/*', (req, res, next) => {
+  next(new CustomError(`can not find ${req.originalUrl}`, 404));
+});
+
+app.use(errorHandler);
 
 app.listen(PORT, (err) => {
   if (err) return console.log('Server startup error..', err.message);

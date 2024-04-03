@@ -1,9 +1,16 @@
 const bcrypt = require('bcrypt');
 
 const userService = require('../service/userService');
+const CustomError = require('../utils/AppError');
 
 class UserController {
-  async login(req, res) {
+  // asyncErrorHandler = (fn) => {
+  //   return(req,res,next) => {
+  //     fn(req,res,next).catch()
+  //   }
+  // }
+
+  async login(req, res, next) {
     try {
       let { email, password } = req.body;
 
@@ -13,38 +20,39 @@ class UserController {
       const user = await userService.findUserFromEmail(email);
 
       if (!user) {
-        res.status(401).json({ message: 'User and/or password not found' });
+        next(new CustomError('User and/or password not found', 401));
         return;
       }
 
       const isTrue = await bcrypt.compare(password, user.password);
 
       if (!isTrue) {
-        res.status(401).json({ message: 'User and/or password not found' });
+        next(new CustomError('User and/or password not found', 401));
         return;
       }
 
-      req.session.user = {
+      req.session.user = { ...user };
+
+      const userData = {
         userId: user.id,
-        userEmail: user.email,
         userName: user.name,
-        userRole: user.role,
+        userEmail: user.email,
         isConfirmed: user.isConfirmed,
       };
       req.session.save(() => {
         res.status(200).json({
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email,
-          isConfirmed: user.isConfirmed,
+          status: 'success',
+          msg: 'Successful login',
+          data: userData,
         });
       });
     } catch (error) {
-      res.status(500).json({ message: 'Server Error' });
+      console.log('▶ ⇛ error:', error);
+      next(new CustomError('Server Error', 500));
     }
   }
 
-  async registration(req, res) {
+  async registration(req, res, next) {
     try {
       let { email, password } = req.body;
 
@@ -60,62 +68,72 @@ class UserController {
       );
 
       if (!isCreated) {
-        res.status(200).json({ msg: 'This email is already in use' });
+        res
+          .status(201)
+          .json({ status: 'fail', msg: 'This email is already in use' });
         return;
       }
 
-      req.session.user = {
+      req.session.user = { ...user };
+
+      const userData = {
         userId: user.id,
         userEmail: user.email,
-        userName: user.name,
-        userRole: user.role,
         isConfirmed: user.isConfirmed,
       };
+
       req.session.save(() => {
         res.status(200).json({
-          userId: user.id,
-          userEmail: user.email,
-          isConfirmed: user.isConfirmed,
+          status: 'success',
+          msg: 'Successful registration',
+          data: userData,
         });
       });
     } catch (error) {
-      console.log(error);
-      res.status(500).json({ message: 'Server Error' });
+      console.log('▶ ⇛ error:', error);
+      next(new CustomError('Server Error', 500));
     }
   }
 
   async auth(req, res) {
     try {
       if (req.session.user) {
-        const data = {
-          userId: req.session.user.userId,
-          userName: req.session.user.userName,
-          userEmail: req.session.user.userEmail,
+        const userData = {
+          userId: req.session.user.id,
+          userName: req.session.user.name,
+          userEmail: req.session.user.email,
         };
-        res.status(200).json(data);
+
+        res.status(200).json({
+          status: 'success',
+          msg: 'User is authorized',
+          data: userData,
+        });
       } else {
-        res.status(201).json({ msg: 'User is not authorized' });
+        res.status(201).json({ status: 'fail', msg: 'User is not authorized' });
       }
     } catch (error) {
-      res.status(500).json({ msg: 'Server error during authorization' });
+      console.log('▶ ⇛ error:', error);
+      next(new CustomError('Server error during authorization', 500));
     }
   }
 
   async logOut(req, res) {
-    console.log('PROCESS-', process.env.FRONT_BASE_URL);
     try {
       req.session.destroy((err) => {
         if (err) {
-          console.log(err.message);
-          res.status(401).json({ msg: 'Failed to log out' });
+          next(new CustomError('Failed to log out', 503));
         } else {
-          res.status(200).json({ msg: 'You have successfully logged out' });
+          res.status(200).json({
+            status: 'success',
+            msg: 'You have successfully logged out',
+          });
         }
       });
-      res.clearCookie('jwt_auth');
+      res.clearCookie(process.env.SESSION_NAME);
     } catch (error) {
-      console.log('Error --> ', error.message);
-      res.status(500).json({ msg: 'Server error during deauthentication' });
+      console.log('▶ ⇛ error:', error);
+      next(new CustomError('Server error during deauthentication', 500));
     }
   }
 }
