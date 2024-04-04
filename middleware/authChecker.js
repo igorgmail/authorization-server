@@ -5,7 +5,7 @@ function authChecker(req, res, next) {
     next();
   } else {
     // If there is no user, then redirect to the login page
-    res.status(302).redirect(process.env.FRONT_BASE_URL + '/user/auth');
+    res.status(302).redirect(process.env.API_SERVER_URL + '/user/auth');
   }
 }
 
